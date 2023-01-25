@@ -3,10 +3,7 @@
 
 import badger2040w as badger2040
 from badger2040w import WIDTH
-import machine
 import urequests
-import gc
-import badger_os
 import jpegdec
 
 # Set your latitude/longitude here (find yours by right clicking in Google Maps!)
@@ -26,6 +23,7 @@ jpeg = jpegdec.JPEG(display.display)
 # Connects to the wireless network. Ensure you have entered your details in WIFI_CONFIG.py :).
 display.connect()
 
+
 def get_data():
     global weathercode, temperature, windspeed, winddirection, date, time
     print(f"Requesting URL: {URL}")
@@ -42,14 +40,16 @@ def get_data():
     winddirection = calculate_bearing(current["winddirection"])
     weathercode = current["weathercode"]
     date, time = current["time"].split("T")
-   
+
     r.close()
-    
+
+
 def calculate_bearing(d):
     # calculates a compass direction from the wind direction in degrees
     dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
     ix = round(d / (360. / len(dirs)))
     return dirs[ix % len(dirs)]
+
 
 def draw_page():
     # Clear the display
@@ -86,7 +86,7 @@ def draw_page():
         display.text(f"Temperature: {temperature}°C", int(WIDTH / 3), 28, WIDTH - 105, 2)
         display.text(f"Wind Speed: {windspeed}kmph", int(WIDTH / 3), 48, WIDTH - 105, 2)
         display.text(f"Wind Direction: {winddirection}", int(WIDTH / 3), 68, WIDTH - 105, 2)
-        display.text(f"Last update: {date}, {time}", int(WIDTH / 3), 88, WIDTH - 105, 2)   
+        display.text(f"Last update: {date}, {time}", int(WIDTH / 3), 88, WIDTH - 105, 2)
 
     else:
         display.set_pen(0)
@@ -95,6 +95,7 @@ def draw_page():
         display.text("Unable to display weather! Check your network settings in WIFI_CONFIG.py", 5, 65, WIDTH, 1)
 
     display.update()
+
 
 get_data()
 draw_page()
