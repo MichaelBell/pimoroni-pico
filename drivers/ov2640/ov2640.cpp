@@ -56,8 +56,8 @@ namespace pimoroni {
 	uint32_t OV2640::get_image_len_in_bytes() const {
 		switch (current_size) {
 			case SIZE_1600x1200: return 1600 * 1200 * 2;
-			case SIZE_800x600: return 800 * 600 * 2;
-			case SIZE_352x288: return 352 * 288 * 2;
+			//case SIZE_800x600: return 800 * 600 * 2;
+			//case SIZE_352x288: return 352 * 288 * 2;
 			default: return 0;
 		}
 	}
