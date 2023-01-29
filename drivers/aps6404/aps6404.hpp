@@ -6,6 +6,9 @@
 namespace pimoroni {
 	class APS6404 {
 		public:
+			static constexpr int RAM_SIZE = 8 * 1024 * 1024;
+			static constexpr int PAGE_SIZE = 1024;
+
 			APS6404(uint pin_csn = 17, uint pin_d0 = 19, PIO pio = pio1)
 				: pin_csn(pin_csn)
 				, pin_d0(pin_d0)
