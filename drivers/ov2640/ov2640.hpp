@@ -18,9 +18,9 @@ namespace pimoroni {
 			static constexpr uint32_t RING_BUFFER_BITS = 13;
 
 			enum ImageSize {
-				OV2640_1600x1200,
-				OV2640_800x600,
-				OV2640_352x288,
+				SIZE_1600x1200,
+				SIZE_800x600,
+				SIZE_352x288,
 			};
 
 			OV2640() : OV2640(new I2C()) {}
@@ -36,7 +36,7 @@ namespace pimoroni {
 			void init(ImageSize size);
 			void set_image_size(ImageSize size);
 
-			uint32_t get_image_size_in_bytes() const;
+			uint32_t get_image_len_in_bytes() const;
 
 			// Wait for the next frame to begin and start reading the image to the ring buffer
 			// by DMA.  Calling code must be ready to store the data written to the ring buffer

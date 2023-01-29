@@ -38,7 +38,7 @@ namespace pimoroni {
 		//ov2640_regs_write(config, ov2640_uxga_cif);
 
 		// TODO: Support other sizes
-		current_size = OV2640_1600x1200;
+		current_size = SIZE_1600x1200;
 
 		// Set RGB565 output mode
 		i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xff, 0x00);
@@ -53,11 +53,11 @@ namespace pimoroni {
 		dma_channel = dma_claim_unused_channel(true);
 	}
 
-	uint32_t OV2640::get_image_size_in_bytes() const {
+	uint32_t OV2640::get_image_len_in_bytes() const {
 		switch (current_size) {
-			case OV2640_1600x1200: return 1600 * 1200 * 2;
-			case OV2640_800x600: return 800 * 600 * 2;
-			case OV2640_352x288: return 352 * 288 * 2;
+			case SIZE_1600x1200: return 1600 * 1200 * 2;
+			case SIZE_800x600: return 800 * 600 * 2;
+			case SIZE_352x288: return 352 * 288 * 2;
 			default: return 0;
 		}
 	}
@@ -75,7 +75,7 @@ namespace pimoroni {
 			dma_channel, &c,
 			ov2640_ring_buffer,
 			&pio->rxf[pio_sm],
-			get_image_size_in_bytes() >> 2,
+			get_image_len_in_bytes() >> 2,
 			false
 		);
 
@@ -86,7 +86,7 @@ namespace pimoroni {
 
 		dma_channel_start(dma_channel);
 
-		return get_image_size_in_bytes() >> 2;
+		return get_image_len_in_bytes() >> 2;
 	}
 
 	void* OV2640::get_ring_buffer() const {
