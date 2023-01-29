@@ -1,7 +1,13 @@
+#include "pico/stdlib.h"
 #include "pico_camera.hpp"
 
 namespace pimoroni {
     void PicoCamera::init() {
+        // Ensure SD card is deselected
+        gpio_init(26);
+        gpio_put(26, 1);
+        gpio_set_dir(26, GPIO_OUT);
+
         ov2640.init(ImageSize::SIZE_1600x1200);
         aps6404.init();
     }

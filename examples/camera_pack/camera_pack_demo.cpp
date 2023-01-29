@@ -12,21 +12,23 @@ int main() {
     stdio_init_all();
 
     camera.init();
-    sleep_ms(5000);
 
     gpio_init(camera.SW_A);
     gpio_set_dir(camera.SW_A, GPIO_IN);
     gpio_pull_up(camera.SW_A);
 
+    // Press the button to take a picture!
     while (1) {
+        while (gpio_get(camera.SW_A));
+
         camera.capture_image(0);
         printf("Image capture complete\n");
 
         // Use the top 2 bits of the green channel to draw some approximate
         // ASCII art of the image.  This is good enough to check things are basically working.
-        for (int y = 0; y < 60; ++y) {
+        for (int y = 0; y < 40; ++y) {
             for (int x = 0; x < 80; ++x) {
-                int addr = y * 1600 * 2 * 20 + x * 20 * 2;
+                int addr = y * 1600 * 2 * 30 + x * 20 * 2;
                 uint32_t data;
                 camera.read_data(0, addr, 4, &data);
 
@@ -44,8 +46,6 @@ int main() {
             }
             printf("\n");
         }
-
-        while (gpio_get(camera.SW_A));
     }
 
     return 0;
