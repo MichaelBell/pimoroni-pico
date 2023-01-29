@@ -17,10 +17,11 @@ namespace pimoroni {
 			// Ring buffer of size 8kB.
 			static constexpr uint32_t RING_BUFFER_BITS = 13;
 
+			// TODO: Changing image size not supported yet
 			enum ImageSize {
 				SIZE_1600x1200,
-				SIZE_800x600,
-				SIZE_352x288,
+				//SIZE_800x600,
+				//SIZE_352x288,
 			};
 
 			OV2640() : OV2640(new I2C()) {}
