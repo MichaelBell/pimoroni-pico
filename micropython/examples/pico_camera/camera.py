@@ -14,9 +14,8 @@ IP_ADDRESS = "192.168.0.88"
 
 button = Pin(7, Pin.IN, Pin.PULL_UP)
 
-# Note that currently you can only make one of these, so you need
-# to reset the Pico between runs.  Not quite sure why - I think
-# it also hangs if you try to make it after initing WiFi, so maybe that's the cause.
+# Create this before connecting to WiFi because the camera takes a couple of seconds to
+# adjust after first initialization.
 camera = PicoCamera()
 image_size = 1600 * 1200 * 2
 

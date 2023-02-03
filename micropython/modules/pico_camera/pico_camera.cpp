@@ -16,15 +16,18 @@ typedef struct _PicoCamera_obj_t {
     pimoroni::PicoCamera* camera;
     void *buf;
     uint32_t buf_len;
+    bool buf_allocated;
 } _PicoCamera_obj_t;
 
-_PicoCamera_obj_t *camera_obj;
-
+/* There can be only one camera */
+pimoroni::PicoCamera* _camera = NULL;
 
 /***** Destructor ******/
 mp_obj_t PicoCamera___del__(mp_obj_t self_in) {
     _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PicoCamera_obj_t);
-    delete self->camera;
+    if (self->buf_allocated) {
+        m_free(self->buf);
+    }
     return mp_const_none;
 }
 
@@ -41,6 +44,7 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 
     uint32_t *buffer = nullptr;
     uint32_t buffer_len;
+    bool buffer_allocated = false;
 
     if (args[ARG_buffer].u_obj) {
         mp_buffer_info_t bufinfo;
@@ -58,15 +62,22 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
     } else {
         buffer = m_new(uint32_t, DEFAULT_BUFFER_LEN / 4);
         buffer_len = DEFAULT_BUFFER_LEN;
+        buffer_allocated = true;
     }
 
-    camera_obj = m_new_obj_with_finaliser(_PicoCamera_obj_t);
+    _PicoCamera_obj_t* camera_obj = m_new_obj_with_finaliser(_PicoCamera_obj_t);
     camera_obj->base.type = &PicoCamera_type;
     camera_obj->buf = buffer;
     camera_obj->buf_len = buffer_len;
+    camera_obj->buf_allocated = buffer_allocated;
 
-    camera_obj->camera = new pimoroni::PicoCamera();
-    camera_obj->camera->init();
+    if (_camera == NULL) {
+        _camera = camera_obj->camera = new pimoroni::PicoCamera();
+        camera_obj->camera->init();
+    }
+    else {
+        camera_obj->camera = _camera;
+    }
 
     return MP_OBJ_FROM_PTR(camera_obj);
 }
