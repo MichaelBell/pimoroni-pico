@@ -3,7 +3,7 @@
 #include "py/objstr.h"
 
 /***** Extern of Class Definition *****/
-extern const mp_obj_type_t Badger2040_type;
+extern const mp_obj_type_t PicoCamera_type;
 
 /***** Extern of Class Methods *****/
 extern mp_obj_t PicoCamera___del__(mp_obj_t self_in);

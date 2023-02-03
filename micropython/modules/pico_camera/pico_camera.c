@@ -36,7 +36,7 @@ const mp_obj_type_t PicoCamera_type = {
 
 /***** Globals Table *****/
 
-STATIC const mp_rom_map_elem_t pico_camera_globals_table[] = {
+STATIC const mp_rom_map_elem_t picocamera_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_picocamera) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_PicoCamera), (mp_obj_t)&PicoCamera_type },
 };
