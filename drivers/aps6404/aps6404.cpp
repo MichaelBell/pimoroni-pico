@@ -77,6 +77,20 @@ namespace pimoroni {
 		pio_sm_put_blocking(pio, pio_sm, 0x0b000000u | addr);
 	}
 
+	void APS6404::read_blocking(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words) {
+		while (len_in_words > 0) {
+			uint32_t len = len_in_words;
+			if (len > (PAGE_SIZE >> 2)) len = PAGE_SIZE >> 2;
+			read(addr, read_buf, len);
+
+			addr += len << 2;
+			read_buf += len;
+			len_in_words -= len;
+		}
+
+		wait_for_finish_blocking();
+	}
+
 	void APS6404::wait_for_finish_blocking() {
 		dma_channel_wait_for_finish_blocking(dma_channel);
 	}
