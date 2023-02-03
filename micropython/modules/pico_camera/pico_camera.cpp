@@ -29,7 +29,7 @@ mp_obj_t PicoCamera___del__(mp_obj_t self_in) {
 }
 
 /***** Constructor *****/
-mp_obj_t Badger2040_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
+mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_buffer };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_buffer, MP_ARG_OBJ, {.u_obj = nullptr} }
@@ -72,15 +72,29 @@ mp_obj_t PicoCamera_capture_image(mp_obj_t self_in, mp_obj_t slot) {
     return mp_const_none;
 }
 
-mp_obj_t PicoCamera_read_data(mp_obj_t self_in, mp_obj_t slot, mp_obj_t address, mp_obj_t len) {
-    _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PicoCamera_obj_t);
+mp_obj_t PicoCamera_read_data(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    enum { ARG_self, ARG_slot, ARG_address, ARG_len };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_, MP_ARG_REQUIRED | MP_ARG_OBJ },
+        { MP_QSTR_slot, MP_ARG_INT, {.u_int = 0}  },
+        { MP_QSTR_address, MP_ARG_INT, {.u_int = 0}  },
+        { MP_QSTR_len, MP_ARG_INT, {.u_int = 0} },
+    };
 
-    int len_to_read = mp_obj_get_int(len);
-    if (len_to_read > self->camera->buf_len) {
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self], _PicoCamera_obj_t);
+
+    int slot = args[ARG_slot].u_int;
+    int address = args[ARG_address].u_int;
+
+    int len_to_read = args[ARG_len].u_int;
+    if (len_to_read == 0 || len_to_read > self->camera->buf_len) {
         len_to_read = self->camera->buf_len;
     }
 
-    self->camera->read_data(mp_obj_get_int(slot), mp_obj_get_int(address), len_to_read, (uint32_t*)self->camera->buf);
+    self->camera->read_data(slot, address, len_to_read, (uint32_t*)self->camera->buf);
 
     return mp_obj_new_memoryview('B', len_to_read, self->camera->buf);
 }
