@@ -1,5 +1,6 @@
 #include <cstdio>
 #include "pico_camera.hpp"
+#include "hardware/gpio.h"
 
 #include "micropython/modules/util.hpp"
 
@@ -21,6 +22,25 @@ typedef struct _PicoCamera_obj_t {
 
 /* There can be only one camera */
 pimoroni::PicoCamera* _camera = NULL;
+
+/* User might steal the SPI pins, so remember these and reset them across
+ * functions that do work. */
+gpio_function stored_fn;
+
+static void save_spi_fn() {
+    stored_fn = gpio_get_function(18);
+    if (stored_fn != GPIO_FUNC_PIO1) {
+        gpio_set_function(18, GPIO_FUNC_PIO1);
+        gpio_set_function(19, GPIO_FUNC_PIO1);
+        gpio_set_function(20, GPIO_FUNC_PIO1);
+    }
+}
+
+static void restore_spi_fn() {
+    gpio_set_function(18, stored_fn);
+    gpio_set_function(19, stored_fn);
+    gpio_set_function(20, stored_fn);
+}
 
 /***** Destructor ******/
 mp_obj_t PicoCamera___del__(mp_obj_t self_in) {
@@ -73,7 +93,9 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 
     if (_camera == NULL) {
         _camera = camera_obj->camera = new pimoroni::PicoCamera();
+        save_spi_fn();
         camera_obj->camera->init();
+        restore_spi_fn();
     }
     else {
         camera_obj->camera = _camera;
@@ -84,7 +106,9 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 
 mp_obj_t PicoCamera_capture_image(mp_obj_t self_in, mp_obj_t slot) {
     _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(self_in, _PicoCamera_obj_t);
+    save_spi_fn();
     self->camera->capture_image(mp_obj_get_int(slot));
+    restore_spi_fn();
     return mp_const_none;
 }
 
@@ -110,7 +134,9 @@ mp_obj_t PicoCamera_read_data(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
         len_to_read = self->buf_len;
     }
 
+    save_spi_fn();
     self->camera->read_data(slot, address, len_to_read, (uint32_t*)self->buf);
+    restore_spi_fn();
 
     return mp_obj_new_memoryview('B', len_to_read, self->buf);
 }
