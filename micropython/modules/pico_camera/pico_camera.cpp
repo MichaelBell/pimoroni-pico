@@ -39,17 +39,22 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    uint8_t *buffer = nullptr;
+    uint32_t *buffer = nullptr;
     uint32_t buffer_len;
 
     if (args[ARG_buffer].u_obj) {
         mp_buffer_info_t bufinfo;
         mp_get_buffer_raise(args[ARG_buffer].u_obj, &bufinfo, MP_BUFFER_RW);
-        buffer = (uint8_t *)bufinfo.buf;
         if(bufinfo.len < 16) {
             mp_raise_ValueError("Supplied buffer is too small!");
         }
         buffer_len = bufinfo.len;
+
+        // Must align to 32-bit boundary
+        uintptr_t buf_addr = (uintptr_t)bufinfo.buf;
+        buffer = (uint32_t *)((buf_addr + 3) & ~3u);
+        buffer_len -= (uintptr_t)buffer - buf_addr;
+        buffer_len &= ~3u;
     } else {
         buffer = m_new(uint32_t, DEFAULT_BUFFER_LEN / 4);
         buffer_len = DEFAULT_BUFFER_LEN;
@@ -84,19 +89,19 @@ mp_obj_t PicoCamera_read_data(size_t n_args, const mp_obj_t *pos_args, mp_map_t 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self], _PicoCamera_obj_t);
+    _PicoCamera_obj_t *self = MP_OBJ_TO_PTR2(args[ARG_self].u_obj, _PicoCamera_obj_t);
 
     int slot = args[ARG_slot].u_int;
-    int address = args[ARG_address].u_int;
+    uint32_t address = args[ARG_address].u_int;
 
-    int len_to_read = args[ARG_len].u_int;
-    if (len_to_read == 0 || len_to_read > self->camera->buf_len) {
-        len_to_read = self->camera->buf_len;
+    uint32_t len_to_read = args[ARG_len].u_int;
+    if (len_to_read == 0 || len_to_read > self->buf_len) {
+        len_to_read = self->buf_len;
     }
 
-    self->camera->read_data(slot, address, len_to_read, (uint32_t*)self->camera->buf);
+    self->camera->read_data(slot, address, len_to_read, (uint32_t*)self->buf);
 
-    return mp_obj_new_memoryview('B', len_to_read, self->camera->buf);
+    return mp_obj_new_memoryview('B', len_to_read, self->buf);
 }
 
 }
