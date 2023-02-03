@@ -5,7 +5,7 @@
 MP_DEFINE_CONST_FUN_OBJ_1(PicoCamera___del___obj, PicoCamera___del__);
 
 MP_DEFINE_CONST_FUN_OBJ_2(PicoCamera_capture_image_obj, PicoCamera_capture_image);
-MP_DEFINE_CONST_FUN_OBJ_4(PicoCamera_read_data_obj, PicoCamera_read_data);
+MP_DEFINE_CONST_FUN_OBJ_KW(PicoCamera_read_data_obj, 1, PicoCamera_read_data);
 
 /***** Binding of Methods *****/
 STATIC const mp_rom_map_elem_t PicoCamera_locals_dict_table[] = {
