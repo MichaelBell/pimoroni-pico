@@ -23,13 +23,12 @@ namespace pimoroni {
 
 			// Start a read, this completes asynchronously, this function only blocks if another 
 			// transfer is already in progress
+			// len_in_words must be <= 256
 			void read(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words);
 
 			// Read and block until complete
-			void read_blocking(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words) {
-				read(addr, read_buf, len_in_words);
-				wait_for_finish_blocking();
-			}
+			// Lengths longer than one page are supported.
+			void read_blocking(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words);
 
 			// Block until any outstanding read or write completes
 			void wait_for_finish_blocking();

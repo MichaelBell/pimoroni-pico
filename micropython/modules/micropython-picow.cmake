@@ -52,6 +52,7 @@ include(hub75/micropython)
 include(pico_unicorn/micropython)
 include(pico_scroll/micropython)
 include(pico_rgb_keypad/micropython)
+include(pico_camera/micropython)
 
 # Servos & Motors
 include(pwm/micropython)
