@@ -18,7 +18,7 @@ namespace pimoroni {
         PicoCamera() : ov2640(new I2C(CAMERA_PACK, 100000)) {}
         PicoCamera(I2C* i2c) : ov2640(i2c) {}
 
-        void init();
+        void init(uint32_t* buffer=nullptr, uint32_t buffer_len=0);
 
         // Set the size of image to be captured
         void set_image_size(ImageSize size) { ov2640.set_image_size(size); }
@@ -42,10 +42,11 @@ namespace pimoroni {
         APS6404 aps6404;
         OV2640 ov2640;
 
-        static constexpr int NUM_BUFFERS = 8;
+        static constexpr int NUM_BUFFERS = 4;
         uint32_t* buffers[NUM_BUFFERS];
+        uint32_t buffer_len_in_words;
         uint32_t transfer_addr;
 
         uint32_t get_address_for_slot(int slot) const;
-  };
+    };
 }

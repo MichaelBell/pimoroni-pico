@@ -9,7 +9,7 @@ namespace {
 	pimoroni::APS6404* aps6404_inst = nullptr;
 	uint aps6404_int_channel_mask = 0;
 	void dma_interrupt_handler() {
-		if (!(dma_hw->ints0 & aps6404_int_channel_mask)) {
+		if (!(dma_hw->ints1 & aps6404_int_channel_mask)) {
 			// Interrupt for a different channel.
 			return;
 		}
@@ -19,7 +19,7 @@ namespace {
 		uint32_t interrupt_status = save_and_disable_interrupts();
 
 		// Clear the interrupt flag
-		dma_hw->ints0 = aps6404_int_channel_mask;
+		dma_hw->ints1 = aps6404_int_channel_mask;
 
 		// Handle the interrupt
 		aps6404_inst->transfer_done_interrupt();
@@ -58,10 +58,13 @@ namespace pimoroni {
 		dma_channel = dma_claim_unused_channel(true);
 		aps6404_int_channel_mask = 1u << dma_channel;
 
-		// Set up DMA IRQ - slightly higher priority than default.
-		dma_channel_set_irq0_enabled(dma_channel, true);
-		irq_add_shared_handler(DMA_IRQ_0, dma_interrupt_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY + 0x10);
-    	irq_set_enabled(DMA_IRQ_0, true);
+        // Clear any previously set interrupt state for the channel
+        dma_hw->ints1 = aps6404_int_channel_mask;
+
+		// Set up DMA IRQ - originally this used shared handlers but there aren't enough by default(!)
+		irq_set_exclusive_handler(DMA_IRQ_1, dma_interrupt_handler);
+		dma_channel_set_irq1_enabled(dma_channel, true);
+    	irq_set_enabled(DMA_IRQ_1, true);
 		aps6404_inst = this;
 	}
 
@@ -133,9 +136,9 @@ namespace pimoroni {
 		}
 
 		// Temporarily disable handling for the transfer interrupt
-    	irq_set_enabled(DMA_IRQ_0, false);
+    	irq_set_enabled(DMA_IRQ_1, false);
 
-		if (!dma_channel_is_busy(dma_channel) && !(dma_hw->ints0 & aps6404_int_channel_mask)) {
+		if (!dma_channel_is_busy(dma_channel) && !(dma_hw->ints1 & aps6404_int_channel_mask)) {
 			// DMA is not running and the interrupt state is not set, start the write immediately
 			// The interrupt handler can't be in progress because it disables interrupts before
 			// clearing the interrupt status.
@@ -156,7 +159,7 @@ namespace pimoroni {
 		}
 
 		// Re-enable the interrupt
-		irq_set_enabled(DMA_IRQ_0, true);
+		irq_set_enabled(DMA_IRQ_1, true);
 
 		return true;
 	}

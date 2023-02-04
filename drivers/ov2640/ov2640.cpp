@@ -67,9 +67,13 @@ namespace pimoroni {
 		dma_channel = dma_claim_unused_channel(true);
 		chain_dma_channel = dma_claim_unused_channel(true);
 
-		// Set up DMA IRQ - slightly higher priority than default.
+        // Clear any leftover interrupt status from previous users of the channels
+		dma_hw->ints0 = 1u << dma_channel;
+		dma_hw->ints0 = 1u << chain_dma_channel;
+
+		// Set up DMA IRQ - originally this used a shared handler, but there aren't enough by default
+		irq_set_exclusive_handler(DMA_IRQ_0, dma_interrupt_handler);
 		dma_channel_set_irq0_enabled(chain_dma_channel, true);
-		irq_add_shared_handler(DMA_IRQ_0, dma_interrupt_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY + 0x20);
     	irq_set_enabled(DMA_IRQ_0, true);
 	}
 
