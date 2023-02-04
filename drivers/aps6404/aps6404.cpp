@@ -1,7 +1,32 @@
 #include "aps6404.hpp"
 #include "hardware/dma.h"
+#include "hardware/irq.h"
+#include "hardware/sync.h"
 #include "pico/stdlib.h"
 #include "aps6404.pio.h"
+
+namespace {
+	pimoroni::APS6404* aps6404_inst = nullptr;
+	uint aps6404_int_channel_mask = 0;
+	void dma_interrupt_handler() {
+		if (!(dma_hw->ints0 & aps6404_int_channel_mask)) {
+			// Interrupt for a different channel.
+			return;
+		}
+
+		// Disable interrupts while processing the interrupt to avoid
+		// inconsistencies in the write queue state
+		uint32_t interrupt_status = save_and_disable_interrupts();
+
+		// Clear the interrupt flag
+		dma_hw->ints0 = aps6404_int_channel_mask;
+
+		// Handle the interrupt
+		aps6404_inst->transfer_done_interrupt();
+
+		restore_interrupts(interrupt_status);
+	}
+}
 
 namespace pimoroni {
 	void APS6404::init() {
@@ -31,6 +56,13 @@ namespace pimoroni {
 
 		// Claim DMA channel
 		dma_channel = dma_claim_unused_channel(true);
+		aps6404_int_channel_mask = 1u << dma_channel;
+
+		// Set up DMA IRQ - slightly higher priority than default.
+		dma_channel_set_irq0_enabled(dma_channel, true);
+		irq_add_shared_handler(DMA_IRQ_0, dma_interrupt_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY + 0x10);
+    	irq_set_enabled(DMA_IRQ_0, true);
+		aps6404_inst = this;
 	}
 
 	void APS6404::write(uint32_t addr, uint32_t* data, uint32_t len_in_words) {
@@ -95,47 +127,46 @@ namespace pimoroni {
 		dma_channel_wait_for_finish_blocking(dma_channel);
 	}
 
-	void APS6404::write_from_ring_buffer(uint32_t addr, void* ring_buffer, uint32_t len_in_words, uint ring_bits, uint source_dma_channel) {
-		constexpr int words_per_transfer = 256;
+	bool APS6404::enqueue_write(uint32_t addr, uint32_t* data, uint32_t len_in_words) {
+		if (num_queued_buffers == MAX_QUEUED_BUFFERS) {
+			return false;
+		}
 
-		dma_channel_config c = dma_channel_get_default_config(dma_channel);
-		channel_config_set_read_increment(&c, true);
-		channel_config_set_write_increment(&c, false);
-		channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, true));
-		channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-		channel_config_set_ring(&c, false, ring_bits);
-		
-		dma_channel_configure(
-			dma_channel, &c,
-			&pio->txf[pio_sm],
-			ring_buffer,
-			words_per_transfer,
-			false
-		);
+		// Temporarily disable handling for the transfer interrupt
+    	irq_set_enabled(DMA_IRQ_0, false);
 
-		uint32_t write_cmd_and_addr = 0x38000000u | addr;
-		uint32_t transfer_len_for_pio = 0x80000005u + (words_per_transfer << 3);
-		int next_transfer_threshold = len_in_words - words_per_transfer;
-		while (true) {
-			while (dma_hw->ch[source_dma_channel].transfer_count > uint32_t(next_transfer_threshold));
+		if (!dma_channel_is_busy(dma_channel) && !(dma_hw->ints0 & aps6404_int_channel_mask)) {
+			// DMA is not running and the interrupt state is not set, start the write immediately
+			// The interrupt handler can't be in progress because it disables interrupts before
+			// clearing the interrupt status.
+			//printf("\nStart\n");
+			write(addr, data, len_in_words);
+		}
+		else
+		{
+			// We can't be interrupting the transfer interrupt itself, because that disables
+			// interrupts.  It also can't interrupt us, so it is safe to manipulate the shared state
+			// and we are guaranteed that this buffer will be transferred when previous buffers finish.
+			//printf("\nQueue\n");
+			uint32_t next_queue_idx = (write_queue_idx + num_queued_buffers) % MAX_QUEUED_BUFFERS;
+			write_queue[next_queue_idx].addr = addr;
+			write_queue[next_queue_idx].buffer = data;
+			write_queue[next_queue_idx].buffer_len = len_in_words;
+			++num_queued_buffers;
+		}
 
-			pio_sm_put_blocking(pio, pio_sm, transfer_len_for_pio);
-			pio_sm_put_blocking(pio, pio_sm, write_cmd_and_addr);
-			dma_channel_start(dma_channel);
-			write_cmd_and_addr += words_per_transfer << 2;
+		// Re-enable the interrupt
+		irq_set_enabled(DMA_IRQ_0, true);
 
-			dma_channel_wait_for_finish_blocking(dma_channel);
+		return true;
+	}
 
-			if (next_transfer_threshold == 0) break;
-			else next_transfer_threshold -= words_per_transfer;
-
-			if (next_transfer_threshold < 0) {
-				const int final_transfer_len = next_transfer_threshold + words_per_transfer;
-				transfer_len_for_pio = 0x80000005u + (final_transfer_len << 3);
-				dma_hw->ch[dma_channel].transfer_count = final_transfer_len;
-				
-				next_transfer_threshold = 0;
-			}
+	void APS6404::transfer_done_interrupt() {
+		if (num_queued_buffers > 0) {
+			auto& queue_entry = write_queue[write_queue_idx];
+			write(queue_entry.addr, queue_entry.buffer, queue_entry.buffer_len);
+			write_queue_idx = (write_queue_idx + 1) % MAX_QUEUED_BUFFERS;
+			--num_queued_buffers;
 		}
 	}
 }
