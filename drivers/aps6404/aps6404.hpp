@@ -8,6 +8,7 @@ namespace pimoroni {
 		public:
 			static constexpr int RAM_SIZE = 8 * 1024 * 1024;
 			static constexpr int PAGE_SIZE = 1024;
+			static constexpr int MAX_QUEUED_BUFFERS = 8;
 
 			APS6404(uint pin_csn = 17, uint pin_d0 = 19, PIO pio = pio1)
 				: pin_csn(pin_csn)
@@ -17,7 +18,7 @@ namespace pimoroni {
 
 			void init();
 
-			// Start a write, this completes asynchronously, this function only blocks if another 
+			// Start a write, this completes asynchronously, this function blocks if another 
 			// transfer is already in progress
 			void write(uint32_t addr, uint32_t* data, uint32_t len_in_words);
 
@@ -33,9 +34,14 @@ namespace pimoroni {
 			// Block until any outstanding read or write completes
 			void wait_for_finish_blocking();
 
-			// Write data that is being transferred into a ring buffer by another DMA channel
-			void write_from_ring_buffer(uint32_t addr, void* ring_buffer, uint32_t len_in_words, uint ring_bits, uint source_dma_channel);
+			// Start or enqueue a write, this function never blocks, but can fail if the maximum
+			// number of writes are already queued
+			bool enqueue_write(uint32_t addr, uint32_t* data, uint32_t len_in_words);
 
+			void transfer_done_interrupt();
+
+			uint32_t write_queue_idx = 0;  // First enqueued buffer idx
+			uint32_t num_queued_buffers = 0;
 		private:
 			uint pin_csn;  // CSn, SCK must be next pin after CSn
 			uint pin_d0;   // D0, D1, D2, D3 must be consecutive
@@ -44,5 +50,11 @@ namespace pimoroni {
 			uint pio_sm;
 
 			uint dma_channel;
+
+			struct {
+				uint32_t addr;
+				uint32_t* buffer;
+				uint32_t buffer_len;
+			} write_queue[MAX_QUEUED_BUFFERS];
 	};
 }

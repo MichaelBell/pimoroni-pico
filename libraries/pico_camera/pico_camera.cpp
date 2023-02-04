@@ -1,4 +1,5 @@
 #include "pico/stdlib.h"
+#include "hardware/sync.h"
 #include "pico_camera.hpp"
 
 namespace pimoroni {
@@ -10,14 +11,23 @@ namespace pimoroni {
 
         ov2640.init(ImageSize::SIZE_1600x1200);
         aps6404.init();
+
+        for (int i = 0; i < NUM_BUFFERS; ++i) {
+            buffers[i] = (uint32_t*)malloc(APS6404::PAGE_SIZE);
+        }
     }
 
     void PicoCamera::capture_image(int slot) {
-        const uint32_t addr = get_address_for_slot(slot);
+        transfer_addr = get_address_for_slot(slot);
 
-        // TODO: Probably need to run this on core 1 to be reliable - should that happen here, or should the caller do it?
-        const uint32_t image_len_in_words = ov2640.start_capture();
-        aps6404.write_from_ring_buffer(addr, ov2640.get_ring_buffer(), image_len_in_words, OV2640::RING_BUFFER_BITS, ov2640.get_dma_channel());
+        ov2640.start_capture(buffers, NUM_BUFFERS, APS6404::PAGE_SIZE >> 2, [this](uint32_t* buffer) {
+            aps6404.enqueue_write(transfer_addr, buffer, APS6404::PAGE_SIZE >> 2);
+            transfer_addr += APS6404::PAGE_SIZE;
+        });
+
+        while (ov2640.is_capture_in_progress()) {
+            __wfi();
+        }
     }
 
     int PicoCamera::count_image_slots() {

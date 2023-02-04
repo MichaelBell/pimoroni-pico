@@ -2,12 +2,26 @@
 #include "ov2640_init.h"
 #include "hardware/dma.h"
 #include "hardware/pwm.h"
+#include "hardware/irq.h"
 #include "ov2640.pio.h"
 
 #include <cstdio>
 
 namespace {
-	alignas(1 << pimoroni::OV2640::RING_BUFFER_BITS) uint8_t ov2640_ring_buffer[1 << pimoroni::OV2640::RING_BUFFER_BITS];
+	pimoroni::OV2640* ov2640_inst = nullptr;
+	uint ov2640_int_channel_mask = 0;
+	void dma_interrupt_handler() {
+		if (!(dma_hw->ints0 & ov2640_int_channel_mask)) {
+			// Interrupt for a different channel.
+			return;
+		}
+
+		// Clear the interrupt flag
+		dma_hw->ints0 = ov2640_int_channel_mask;
+
+		// Handle the interrupt
+		ov2640_inst->buffer_done_interrupt();
+	}
 }
 
 namespace pimoroni {
@@ -49,8 +63,14 @@ namespace pimoroni {
 		pio_sm = pio_claim_unused_sm(pio, true);
 		ov2640_program_init(pio, pio_sm, offset, pin_y2_pio_base);
 
-		// Claim DMA channel
+		// Claim DMA channels
 		dma_channel = dma_claim_unused_channel(true);
+		chain_dma_channel = dma_claim_unused_channel(true);
+
+		// Set up DMA IRQ - slightly higher priority than default.
+		dma_channel_set_irq0_enabled(chain_dma_channel, true);
+		irq_add_shared_handler(DMA_IRQ_0, dma_interrupt_handler, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY + 0x20);
+    	irq_set_enabled(DMA_IRQ_0, true);
 	}
 
 	uint32_t OV2640::get_image_len_in_bytes() const {
@@ -62,22 +82,51 @@ namespace pimoroni {
 		}
 	}
 
-	uint32_t OV2640::start_capture() {
+	uint32_t OV2640::start_capture(uint32_t** buffers, uint32_t num_buffers_, uint32_t buffer_len_, std::function<void(uint32_t* buffer)> callback) {
+		num_buffers = num_buffers_;
+		buffer_len = buffer_len_;
+		next_buffer_idx = 0;
+		for (uint32_t i = 0; i < num_buffers_; ++i) {
+			buffer_ptrs[i] = buffers[i];
+		}
+		transfer_buffer_callback = callback;
+		chain_cb.next_buffer_address = buffer_ptrs[1];
+		chain_cb.next_transfer_len = buffer_len;
+		next_buffer_idx = 2 % num_buffers;
+		remaining_transfer_len = (get_image_len_in_bytes() >> 2) - 2 * buffer_len;
+
 		dma_channel_config c = dma_channel_get_default_config(dma_channel);
 		channel_config_set_read_increment(&c, false);
 		channel_config_set_write_increment(&c, true);
 		channel_config_set_dreq(&c, pio_get_dreq(pio, pio_sm, false));
 		channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
 		channel_config_set_bswap(&c, true);
-		channel_config_set_ring(&c, true, OV2640::RING_BUFFER_BITS);
+		channel_config_set_chain_to(&c, chain_dma_channel);
 		
 		dma_channel_configure(
 			dma_channel, &c,
-			ov2640_ring_buffer,
+			buffer_ptrs[0],
 			&pio->rxf[pio_sm],
-			get_image_len_in_bytes() >> 2,
+			buffer_len,
 			false
 		);
+
+		c = dma_channel_get_default_config(chain_dma_channel);
+		channel_config_set_read_increment(&c, true);
+		channel_config_set_write_increment(&c, true);
+		channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+
+		dma_channel_configure(
+			chain_dma_channel, &c,
+			&dma_hw->ch[dma_channel].al1_write_addr,
+			&chain_cb,
+			2,
+			false
+		);
+
+		// Set up interrupt handler to point to this instance
+		ov2640_inst = this;
+		ov2640_int_channel_mask = 1u << chain_dma_channel;
 
 		// Wait for vsync rising edge to start frame
 		while (gpio_get(pin_vsync) == true);
@@ -85,12 +134,36 @@ namespace pimoroni {
 		pio_sm_clear_fifos(pio, pio_sm);
 
 		dma_channel_start(dma_channel);
+		capture_in_progress = true;
 
 		return get_image_len_in_bytes() >> 2;
 	}
 
-	void* OV2640::get_ring_buffer() const {
-		return ov2640_ring_buffer;
+	void OV2640::buffer_done_interrupt() {
+		// The buffer just completed is 2 before the next
+		const uint32_t completed_buffer_idx = (next_buffer_idx + num_buffers - 2) % num_buffers;
+
+		if (chain_cb.next_transfer_len == 0) {
+			capture_in_progress = false;
+		}
+
+		// Set the next buffer ready for the chain
+		chain_cb.next_buffer_address = buffer_ptrs[next_buffer_idx];
+		next_buffer_idx = (next_buffer_idx + 1) % num_buffers;
+
+		// Determine the next transfer len.  This will automatically terminate the
+		// transfer when 0 is written as the transfer length
+		uint32_t next_transfer_len = buffer_len;
+		if (remaining_transfer_len < buffer_len) {
+			chain_cb.next_transfer_len = remaining_transfer_len;
+			next_transfer_len = remaining_transfer_len;
+		}
+		remaining_transfer_len -= next_transfer_len;
+		dma_channel_set_write_addr(chain_dma_channel, &dma_hw->ch[dma_channel].al1_write_addr, false);
+		dma_channel_set_read_addr(chain_dma_channel, &chain_cb, false);
+
+		// Make the callback
+		transfer_buffer_callback(buffer_ptrs[completed_buffer_idx]);
 	}
 
 	void OV2640::regs_write(const uint8_t (*regs_list)[2]) {
@@ -108,5 +181,3 @@ namespace pimoroni {
 		}
 	}
 }
-
-

@@ -42,6 +42,10 @@ namespace pimoroni {
         APS6404 aps6404;
         OV2640 ov2640;
 
+        static constexpr int NUM_BUFFERS = 8;
+        uint32_t* buffers[NUM_BUFFERS];
+        uint32_t transfer_addr;
+
         uint32_t get_address_for_slot(int slot) const;
   };
 }
