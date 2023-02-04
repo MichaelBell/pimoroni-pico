@@ -10,6 +10,7 @@ extern "C" {
 #include "py/mpthread.h"
 
 #define DEFAULT_BUFFER_LEN 1024
+#define CAMERA_BUFFER_LEN 4096
 
 /***** Variables Struct *****/
 typedef struct _PicoCamera_obj_t {
@@ -94,7 +95,7 @@ mp_obj_t PicoCamera_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
     if (_camera == NULL) {
         _camera = camera_obj->camera = new pimoroni::PicoCamera();
         save_spi_fn();
-        camera_obj->camera->init();
+        camera_obj->camera->init(m_new(uint32_t, CAMERA_BUFFER_LEN / 4), CAMERA_BUFFER_LEN);
         restore_spi_fn();
     }
     else {
