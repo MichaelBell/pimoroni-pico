@@ -10,7 +10,7 @@ namespace pimoroni {
             static constexpr int PAGE_SIZE = 1024;
             static constexpr int MAX_QUEUED_BUFFERS = 8;
 
-            APS6404(uint pin_csn = 17, uint pin_d0 = 19, PIO pio = pio1)
+            APS6404(uint pin_csn = 17, uint pin_d0 = 19, PIO pio = pio0)
                 : pin_csn(pin_csn)
                 , pin_d0(pin_d0)
                 , pio(pio)

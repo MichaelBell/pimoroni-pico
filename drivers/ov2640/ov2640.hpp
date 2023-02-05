@@ -31,7 +31,7 @@ namespace pimoroni {
             };
 
             OV2640() : OV2640(new I2C()) {}
-            OV2640(I2C* i2c, uint pin_resetb = 8, uint pin_xclk = 0, uint pin_vsync = 28, uint pin_data2 = 9, PIO pio = pio1)
+            OV2640(I2C* i2c, uint pin_resetb = 8, uint pin_xclk = 0, uint pin_vsync = 28, uint pin_data2 = 9, PIO pio = pio0)
                 : i2c(i2c) 
                 , pin_resetb(pin_resetb)
                 , pin_xclk(pin_xclk)
