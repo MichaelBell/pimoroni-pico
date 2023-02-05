@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "pico/stdlib.h"
 #include "hardware/sync.h"
 #include "pico_camera.hpp"
@@ -9,11 +10,11 @@ namespace pimoroni {
         gpio_put(26, 1);
         gpio_set_dir(26, GPIO_OUT);
 
-        ov2640.init(ImageSize::SIZE_1600x1200);
+        ov2640.init(ImageSize::SIZE_1600x1200, ImageMode::MODE_RGB565);
         aps6404.init();
 
         if (buffer_len > 0) {
-            buffer_len_in_words = buffer_len / (NUM_BUFFERS * 4);
+            buffer_len_in_words = std::min(buffer_len / (NUM_BUFFERS * 4), (uint32_t)APS6404::PAGE_SIZE >> 2);
         }
         else {
             buffer_len_in_words = APS6404::PAGE_SIZE >> 2;

@@ -22,12 +22,12 @@ static const uint8_t ov2640_svga[][2] = {
 	{0x16, 0x10},  /* Reserved                              */
 	{0x4a, 0x81},  /* Reserved                              */
 	{0x21, 0x99},  /* Reserved                              */
-	{0x24, 0x40},  /* Luminance signal High range           */
-	{0x25, 0x38},  /* Luminance signal low range            */
+	{0x24, 0x30},  /* Luminance signal High range           */
+	{0x25, 0x28},  /* Luminance signal low range            */
 	{0x26, 0x82},  /*                                       */
 	{0x5c, 0x00},  /* Reserved                              */
 	{0x63, 0x00},  /* Reserved                              */
-	{0x46, 0x3f},  /* Frame length adjustment               */
+	{0x46, 0x0f},  /* Frame length adjustment               */
 	{0x0c, 0x3c},  /* Common control 3                      */
 	{0x61, 0x70},  /* Histogram algo low level              */
 	{0x62, 0x80},  /* Histogram algo high level             */

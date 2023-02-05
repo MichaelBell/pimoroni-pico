@@ -74,6 +74,28 @@ mp_obj_t pico_camera_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
     return mp_const_none;
 }
 
+mp_obj_t pico_camera_get_image_len() {
+    return mp_obj_new_int(camera->get_image_len_in_bytes());
+}
+
+mp_obj_t pico_camera_set_image_size(mp_obj_t size) {
+    camera->set_image_size((pimoroni::PicoCamera::ImageSize)mp_obj_get_int(size));
+    return mp_const_none;
+}
+
+mp_obj_t pico_camera_get_image_size() {
+    return mp_obj_new_int(camera->get_image_size());
+}
+
+mp_obj_t pico_camera_set_image_mode(mp_obj_t mode) {
+    camera->set_image_mode((pimoroni::PicoCamera::ImageMode)mp_obj_get_int(mode));
+    return mp_const_none;
+}
+
+mp_obj_t pico_camera_get_image_mode() {
+    return mp_obj_new_int(camera->get_image_mode());
+}
+
 mp_obj_t pico_camera_capture_image(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     enum { ARG_slot };
     static const mp_arg_t allowed_args[] = {

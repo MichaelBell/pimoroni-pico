@@ -25,6 +25,11 @@ namespace pimoroni {
                 //SIZE_352x288,
             };
 
+            enum ImageMode {
+                MODE_RGB565,
+                MODE_YUYV,
+            };
+
             OV2640() : OV2640(new I2C()) {}
             OV2640(I2C* i2c, uint pin_resetb = 8, uint pin_xclk = 0, uint pin_vsync = 28, uint pin_data2 = 9, PIO pio = pio1)
                 : i2c(i2c) 
@@ -36,8 +41,13 @@ namespace pimoroni {
                 , capture_in_progress(false)
             {}
 
-            void init(ImageSize size);
+            void init(ImageSize size, ImageMode mode);
+
             void set_image_size(ImageSize size);
+            ImageSize get_image_size() const { return current_size; }
+
+            void set_image_mode(ImageMode mode);
+            ImageMode get_image_mode() const { return current_mode; }
 
             uint32_t get_image_len_in_bytes() const;
 
@@ -83,5 +93,6 @@ namespace pimoroni {
             bool capture_in_progress;
 
             ImageSize current_size;
+            ImageMode current_mode;
     };
 }
