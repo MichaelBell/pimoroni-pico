@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <algorithm>
 #include "pico/stdlib.h"
 #include "hardware/sync.h"
@@ -27,6 +28,27 @@ namespace pimoroni {
                 buffers[i] = (uint32_t*)malloc(buffer_len_in_words << 2);
             }
         }
+    }
+
+    void PicoCamera::memory_test() {
+        uint32_t data[16];
+        for (uint32_t i = 0; i < 16; ++i) {
+            data[i] = 0x12345670u + i * 0x10101010u;
+        }
+        aps6404.write(0, data, 16);
+
+        for (int j = 0; j < 10; ++j)
+        for (int i = 0; i < 16; ++i) {
+            uint32_t read_data = 1;
+            aps6404.read_blocking(i * 4, &read_data, 1);
+            if (read_data != data[i]) {
+                printf("RAM test failed: Wrote %lx, read back %lx\n", data[i], read_data);
+            }
+            else {
+                printf("RAM test OK: Wrote %lx, read back %lx\n", data[i], read_data);
+            }
+        }
+        printf("RAM test complete\n");
     }
 
     void PicoCamera::capture_image(int slot) {

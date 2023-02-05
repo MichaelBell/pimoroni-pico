@@ -48,6 +48,7 @@ namespace pimoroni {
 
             PIO pio;
             uint pio_sm;
+            uint pio_offset;
 
             uint dma_channel;
 

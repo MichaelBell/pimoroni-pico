@@ -36,23 +36,26 @@ namespace pimoroni {
             gpio_disable_pulls(pin_d0 + i);
         }
 
-        uint offset = pio_add_program(pio, &sram_reset_program);
+        pio_offset = pio_add_program(pio, &sram_reset_program);
         pio_sm = pio_claim_unused_sm(pio, true);
-        aps6404_reset_program_init(pio, pio_sm, offset, pin_csn, pin_d0);
+        aps6404_reset_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
 
         sleep_us(200);
         pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
         pio_sm_put_blocking(pio, pio_sm, 0x66000000u);
         pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
         pio_sm_put_blocking(pio, pio_sm, 0x99000000u);
+        pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
+        pio_sm_put_blocking(pio, pio_sm, 0x35000000u);
+        sleep_us(300);
         sleep_us(300);
         pio_sm_set_enabled(pio, pio_sm, false);
 
-        pio_remove_program(pio, &sram_reset_program, offset);
+        pio_remove_program(pio, &sram_reset_program, pio_offset);
 
-        offset = pio_add_program(pio, &sram_program);
+        pio_offset = pio_add_program(pio, &sram_program);
         //printf("SRAM program loaded to PIO at offset %d\n", offset);
-        aps6404_program_init(pio, pio_sm, offset, pin_csn, pin_d0);
+        aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
 
         // Claim DMA channel
         dma_channel = dma_claim_unused_channel(true);
@@ -85,8 +88,9 @@ namespace pimoroni {
             false
         );
 
-        pio_sm_put_blocking(pio, pio_sm, 0x80000000u | ((len_in_words * 8) - 1 + 6));
+        pio_sm_put_blocking(pio, pio_sm, (len_in_words * 8) - 1);
         pio_sm_put_blocking(pio, pio_sm, 0x38000000u | addr);
+        pio_sm_put_blocking(pio, pio_sm, pio_offset + sram_offset_do_write);
 
         dma_channel_start(dma_channel);
     }
@@ -108,8 +112,9 @@ namespace pimoroni {
             true
         );
 
-        pio_sm_put_blocking(pio, pio_sm, (len_in_words * 32) - 1);
-        pio_sm_put_blocking(pio, pio_sm, 0x0b000000u | addr);
+        pio_sm_put_blocking(pio, pio_sm, (len_in_words * 8) - 4);
+        pio_sm_put_blocking(pio, pio_sm, 0xeb000000u | addr);
+        pio_sm_put_blocking(pio, pio_sm, pio_offset + sram_offset_do_read);
     }
 
     void APS6404::read_blocking(uint32_t addr, uint32_t* read_buf, uint32_t len_in_words) {

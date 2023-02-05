@@ -11,7 +11,10 @@ PicoCamera camera;
 int main() {
     stdio_init_all();
 
+    sleep_ms(5000);
+
     camera.init();
+    camera.memory_test();
 
     gpio_init(camera.SW_A);
     gpio_set_dir(camera.SW_A, GPIO_IN);
