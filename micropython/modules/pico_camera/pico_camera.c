@@ -1,44 +1,20 @@
 #include "pico_camera.h"
 
 
-/***** Methods *****/
-MP_DEFINE_CONST_FUN_OBJ_1(PicoCamera___del___obj, PicoCamera___del__);
+/***** Module functions *****/
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(picocamera_init_obj, 0, pico_camera_init);
 
-MP_DEFINE_CONST_FUN_OBJ_2(PicoCamera_capture_image_obj, PicoCamera_capture_image);
-MP_DEFINE_CONST_FUN_OBJ_KW(PicoCamera_read_data_obj, 1, PicoCamera_read_data);
-
-/***** Binding of Methods *****/
-STATIC const mp_rom_map_elem_t PicoCamera_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&PicoCamera___del___obj) },
-    { MP_ROM_QSTR(MP_QSTR_capture_image), MP_ROM_PTR(&PicoCamera_capture_image_obj) },
-    { MP_ROM_QSTR(MP_QSTR_read_data), MP_ROM_PTR(&PicoCamera_read_data_obj) },
-};
-
-STATIC MP_DEFINE_CONST_DICT(PicoCamera_locals_dict, PicoCamera_locals_dict_table);
-
-/***** Class Definition *****/
-#ifdef MP_DEFINE_CONST_OBJ_TYPE
-MP_DEFINE_CONST_OBJ_TYPE(
-    PicoCamera_type,
-    MP_QSTR_PicoCamera,
-    MP_TYPE_FLAG_NONE,
-    make_new, PicoCamera_make_new,
-    locals_dict, (mp_obj_dict_t*)&PicoCamera_locals_dict
-);
-#else
-const mp_obj_type_t PicoCamera_type = {
-    { &mp_type_type },
-    .name = MP_QSTR_PicoCamera,
-    .make_new = PicoCamera_make_new,
-    .locals_dict = (mp_obj_dict_t*)&PicoCamera_locals_dict,
-};
-#endif
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(picocamera_capture_image_obj, 0, pico_camera_capture_image);
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(picocamera_read_data_obj, 1, pico_camera_read_data);
 
 /***** Globals Table *****/
 
 STATIC const mp_rom_map_elem_t picocamera_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_picocamera) },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_PicoCamera), (mp_obj_t)&PicoCamera_type },
+    { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picocamera_init_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR_capture_image), MP_ROM_PTR(&picocamera_capture_image_obj) },
+    { MP_ROM_QSTR(MP_QSTR_read_data), MP_ROM_PTR(&picocamera_read_data_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_picocamera_globals, picocamera_globals_table);
 
