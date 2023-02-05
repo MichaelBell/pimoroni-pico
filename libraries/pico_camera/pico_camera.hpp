@@ -21,6 +21,8 @@ namespace pimoroni {
 
         void init(uint32_t* buffer=nullptr, uint32_t buffer_len=0);
 
+        void memory_test();
+
         // Set the size of image to be captured
         void set_image_size(ImageSize size) { ov2640.set_image_size(size); }
         ImageSize get_image_size() const { return ov2640.get_image_size(); }
