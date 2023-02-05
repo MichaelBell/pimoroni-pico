@@ -1,7 +1,7 @@
 # This example takes images and streams them over a TCP socket to a host
 # Example receiver is here: https://github.com/MichaelBell/rp2040_ov2640/blob/main/scripts/image_read.py
 
-from picocamera import PicoCamera
+import picocamera
 from machine import Pin
 from sd import mount_sd
 import time
@@ -11,18 +11,23 @@ import rp2
 from secrets import SSID, PSK
 
 # IP address of receiver
-IP_ADDRESS = "192.168.0.88"
+IP_ADDRESS = "192.168.1.248"
 
 button = Pin(7, Pin.IN, Pin.PULL_UP)
 
 # Mount the SD card
 mount_sd()
 
+print("SD mounted")
+
 # Create the camera before connecting to WiFi because the camera takes a couple of seconds to
 # adjust after first initialization.
-xfer_buffer = bytearray(2048)
-camera = PicoCamera(xfer_buffer)
-image_size = 1600 * 1200 * 2
+xfer_buffer = bytearray(4096)
+picocamera.init(xfer_buffer)
+image_size = picocamera.get_image_len()
+picocamera.set_image_mode(picocamera.MODE_YUYV)
+
+print("Camera created")
 
 # Connect to WiFi
 rp2.country("GB")
@@ -38,9 +43,14 @@ while time.ticks_diff(time.ticks_ms(), start) < 30000:
 
 print("Connected to WiFi")
 
+# Ensure the camera has had time to wake up
+time_to_connect = time.ticks_diff(time.ticks_ms(), start)
+if time_to_connect < 5000:
+    time.sleep(5.0 - time_to_connect / 1000)
+
 while True:
     # Capture an image
-    camera.capture_image(0)
+    picocamera.capture_image()
     print("Image captured")
 
     # Read image out to TCP socket
@@ -53,7 +63,7 @@ while True:
 
     start = time.ticks_ms()
     while len_left > 0:
-        data = camera.read_data(0, addr, min(len(xfer_buffer), len_left))
+        data = picocamera.read_data(addr, min(len(xfer_buffer), len_left))
         len_left -= len(data)
         addr += len(data)
         sock.write(data)
@@ -67,7 +77,7 @@ while True:
     with open("/sd/image.raw", "wb") as image_file:
         start = time.ticks_ms()
         while len_left > 0:
-            data = camera.read_data(0, addr, min(len(xfer_buffer), len_left))
+            data = picocamera.read_data(addr, min(len(xfer_buffer), len_left))
             len_left -= len(data)
             addr += len(data)
             image_file.write(data)
