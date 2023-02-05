@@ -14,6 +14,7 @@ namespace pimoroni {
         static const uint8_t EXT_INT = 3;
 
         using ImageSize = OV2640::ImageSize;
+        using ImageMode = OV2640::ImageMode;
 
         PicoCamera() : ov2640(new I2C(CAMERA_PACK, 100000)) {}
         PicoCamera(I2C* i2c) : ov2640(i2c) {}
@@ -22,6 +23,11 @@ namespace pimoroni {
 
         // Set the size of image to be captured
         void set_image_size(ImageSize size) { ov2640.set_image_size(size); }
+        ImageSize get_image_size() const { return ov2640.get_image_size(); }
+
+        // Set the mode of the image
+        void set_image_mode(ImageMode mode) { ov2640.set_image_mode(mode); }
+        ImageMode get_image_mode() const { return ov2640.get_image_mode(); }
 
         // Return the length of a captured image at the current size
         uint32_t get_image_len_in_bytes() const { return ov2640.get_image_len_in_bytes(); }

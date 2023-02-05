@@ -25,7 +25,7 @@ namespace {
 }
 
 namespace pimoroni {
-    void OV2640::init(ImageSize size) {
+    void OV2640::init(ImageSize size, ImageMode mode) {
         // XCLK generation (~15.62 MHz with RP2040 at 125MHz)
         gpio_set_function(pin_xclk, GPIO_FUNC_PWM);
         uint slice_num = pwm_gpio_to_slice_num(pin_xclk);
@@ -52,11 +52,8 @@ namespace pimoroni {
         //ov2640_regs_write(config, ov2640_uxga_cif);
 
         // TODO: Support other sizes
-        current_size = SIZE_1600x1200;
-
-        // Set RGB565 output mode
-        i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xff, 0x00);
-        i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xDA, 0x09);
+        set_image_size(size);
+        set_image_mode(mode);
 
         // Enable image RX PIO
         uint offset = pio_add_program(pio, &ov2640_program);
@@ -75,6 +72,25 @@ namespace pimoroni {
         irq_set_exclusive_handler(DMA_IRQ_0, dma_interrupt_handler);
         dma_channel_set_irq0_enabled(chain_dma_channel, true);
         irq_set_enabled(DMA_IRQ_0, true);
+    }
+
+    void OV2640::set_image_size(ImageSize size) {
+        // TODO
+
+        current_size = size;
+    }
+
+    void OV2640::set_image_mode(ImageMode mode) {
+        // Set output mode
+        i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xff, 0x00);
+        if (mode == MODE_RGB565) {
+            i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xDA, 0x09);
+        }
+        else {
+            i2c->reg_write_uint8(OV2640_I2C_ADDRESS, 0xDA, 0x00);
+        }
+
+        current_mode = mode;
     }
 
     uint32_t OV2640::get_image_len_in_bytes() const {
