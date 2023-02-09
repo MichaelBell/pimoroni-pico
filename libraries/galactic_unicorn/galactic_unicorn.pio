@@ -67,7 +67,8 @@ pixels:
 
   out pins, 8                     ; output row select
 
-  set pins, 0b110 [5]             ; latch high, blank high
+  set pins, 0b110 [7]             ; latch high, blank high
+  nop [7]
   set pins, 0b000                 ; blank low (enable output)
 
 ; loop over bcd delay period
