@@ -22,10 +22,10 @@ gpio_function stored_fn;
 
 static void save_spi_fn() {
     stored_fn = gpio_get_function(18);
-    if (stored_fn != GPIO_FUNC_PIO1) {
-        gpio_set_function(18, GPIO_FUNC_PIO1);
-        gpio_set_function(19, GPIO_FUNC_PIO1);
-        gpio_set_function(20, GPIO_FUNC_PIO1);
+    if (stored_fn != GPIO_FUNC_PIO0) {
+        gpio_set_function(18, GPIO_FUNC_PIO0);
+        gpio_set_function(19, GPIO_FUNC_PIO0);
+        gpio_set_function(20, GPIO_FUNC_PIO0);
     }
 }
 
