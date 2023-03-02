@@ -18,6 +18,8 @@ namespace pimoroni {
 
             void init();
 
+            void adjust_clock();
+
             // Start a write, this completes asynchronously, this function blocks if another 
             // transfer is already in progress
             void write(uint32_t addr, uint32_t* data, uint32_t len_in_words);
@@ -47,8 +49,9 @@ namespace pimoroni {
             uint pin_d0;   // D0, D1, D2, D3 must be consecutive
 
             PIO pio;
-            uint pio_sm;
-            uint pio_offset;
+            uint16_t pio_sm;
+            uint16_t pio_offset;
+            const pio_program* pio_prog;
 
             uint dma_channel;
 

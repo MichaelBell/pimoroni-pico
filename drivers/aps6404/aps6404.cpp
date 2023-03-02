@@ -2,6 +2,7 @@
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/sync.h"
+#include "hardware/clocks.h"
 #include "pico/stdlib.h"
 #include "aps6404.pio.h"
 
@@ -36,6 +37,7 @@ namespace pimoroni {
             gpio_disable_pulls(pin_d0 + i);
         }
 
+        pio_prog = &sram_reset_program;
         pio_offset = pio_add_program(pio, &sram_reset_program);
         pio_sm = pio_claim_unused_sm(pio, true);
         aps6404_reset_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
@@ -47,15 +49,9 @@ namespace pimoroni {
         pio_sm_put_blocking(pio, pio_sm, 0x99000000u);
         pio_sm_put_blocking(pio, pio_sm, 0x00000007u);
         pio_sm_put_blocking(pio, pio_sm, 0x35000000u);
-        sleep_us(300);
-        sleep_us(300);
-        pio_sm_set_enabled(pio, pio_sm, false);
+        sleep_us(500);
 
-        pio_remove_program(pio, &sram_reset_program, pio_offset);
-
-        pio_offset = pio_add_program(pio, &sram_program);
-        //printf("SRAM program loaded to PIO at offset %d\n", offset);
-        aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0);
+        adjust_clock();
 
         // Claim DMA channel
         dma_channel = dma_claim_unused_channel(true);
@@ -69,6 +65,28 @@ namespace pimoroni {
         dma_channel_set_irq1_enabled(dma_channel, true);
         irq_set_enabled(DMA_IRQ_1, true);
         aps6404_inst = this;
+    }
+
+    void APS6404::adjust_clock() {
+        pio_sm_set_enabled(pio, pio_sm, false);
+        
+        pio_remove_program(pio, pio_prog, pio_offset);
+
+        if (clock_get_hz(clk_sys) > 296000000) {
+            pio_prog = &sram_fast_program;
+            pio_offset = pio_add_program(pio, &sram_fast_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, true);
+        }
+        else if (clock_get_hz(clk_sys) < 130000000) {
+            pio_prog = &sram_slow_program;
+            pio_offset = pio_add_program(pio, &sram_slow_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, true, false);
+        }
+        else {
+            pio_prog = &sram_program;
+            pio_offset = pio_add_program(pio, &sram_program);
+            aps6404_program_init(pio, pio_sm, pio_offset, pin_csn, pin_d0, false, false);
+        }
     }
 
     void APS6404::write(uint32_t addr, uint32_t* data, uint32_t len_in_words) {
