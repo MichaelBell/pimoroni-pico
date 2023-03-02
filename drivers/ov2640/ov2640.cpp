@@ -148,10 +148,11 @@ namespace pimoroni {
         ov2640_inst = this;
         ov2640_int_channel_mask = 1u << chain_dma_channel;
 
-        // Wait for vsync rising edge to start frame
+        // Wait for vsync low to start frame 
+        // (despite the documentation, VSYNC appears to be active low not high)
         while (gpio_get(pin_vsync) == true);
-        while (gpio_get(pin_vsync) == false);
         pio_sm_clear_fifos(pio, pio_sm);
+        pio_sm_set_enabled(pio, pio_sm, true);
 
         dma_channel_start(dma_channel);
         capture_in_progress = true;
@@ -165,6 +166,7 @@ namespace pimoroni {
 
         if (chain_cb.next_transfer_len == 0) {
             capture_in_progress = false;
+            pio_sm_set_enabled(pio, pio_sm, false);
         }
 
         // Set the next buffer ready for the chain

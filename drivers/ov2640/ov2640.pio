@@ -1,10 +1,10 @@
-; TODO: Make the hsync and pclk pins configurable
+; TODO: Make the href and pclk pins configurable
 ; Probably requires editing the program on the fly
-; For the moment you set the base data pin and hsync and pclk are
+; For the moment you set the base data pin and href and pclk are
 ; correct for the camera pack
 .program ov2640
 .wrap_target
-    wait 1 pin 18  ; wait for hsync
+    wait 1 pin 18  ; wait for href high
     wait 1 pin 24  ; wait for rising pclk
     in pins 8
     wait 0 pin 24
