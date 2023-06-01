@@ -2,7 +2,7 @@
 # Example receiver is here: https://github.com/MichaelBell/rp2040_ov2640/blob/main/scripts/image_read.py
 
 import picocamera
-from machine import Pin
+from machine import Pin, PWM
 from sd import mount_sd
 import time
 import socket
@@ -11,9 +11,11 @@ import rp2
 from secrets import SSID, PSK
 
 # IP address of receiver
-IP_ADDRESS = "192.168.1.248"
+IP_ADDRESS = "192.168.8.122"
 
-button = Pin(7, Pin.IN, Pin.PULL_UP)
+button = Pin(7, Pin.IN, Pin.PULL_DOWN)
+light = PWM(Pin(2))
+light.freq(20000)
 
 # Mount the SD card
 mount_sd()
@@ -50,8 +52,11 @@ if time_to_connect < 5000:
 
 while True:
     # Capture an image
+    light.duty_u16(5000)
+    time.sleep(5)
     picocamera.capture_image()
     print("Image captured")
+    light.duty_u16(0)
 
     # Read image out to TCP socket
     len_left = image_size
@@ -101,8 +106,9 @@ while True:
         print("Image read back at {:.2f}kB/s".format(image_size / (1.024 * (time.ticks_ms() - start))))
 
     # Wait for button press before taking next image
-    while button.value():
+    while not button.value():
         pass
+    print("Button pressed")
 
     # Wait for a further half second before taking image
     # to reduce camera shake
