@@ -20,6 +20,9 @@ include(pico_scroll/micropython)
 include(pico_rgb_keypad/micropython)
 include(pico_explorer/micropython)
 
+# Camera - TODO: Probably have its own build
+include(pico_camera/micropython)
+
 # LEDs & Matrices
 include(plasma/micropython)
 include(hub75/micropython)
