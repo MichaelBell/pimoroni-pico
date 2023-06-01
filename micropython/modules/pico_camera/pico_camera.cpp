@@ -12,7 +12,9 @@ extern "C" {
 #define DEFAULT_BUFFER_LEN 4096
 
 /* There can be only one camera */
-static pimoroni::PicoCamera* camera = NULL;
+static pimoroni::I2C camera_i2c(pimoroni::CAMERA_PACK, 100000);
+static pimoroni::PicoCamera camera(&camera_i2c);
+static bool camera_inited = false;
 static uint32_t* buffer = NULL;
 static uint32_t buffer_len;
 
@@ -64,36 +66,36 @@ mp_obj_t pico_camera_init(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_
         buffer_len = DEFAULT_BUFFER_LEN;
     }
 
-    if (camera == NULL) {
-        camera = new pimoroni::PicoCamera();
+    if (!camera_inited) {
         save_spi_fn();
-        camera->init(buffer, buffer_len);
+        camera.init(buffer, buffer_len);
         restore_spi_fn();
+        camera_inited = true;
     }
 
     return mp_const_none;
 }
 
 mp_obj_t pico_camera_get_image_len() {
-    return mp_obj_new_int(camera->get_image_len_in_bytes());
+    return mp_obj_new_int(camera.get_image_len_in_bytes());
 }
 
 mp_obj_t pico_camera_set_image_size(mp_obj_t size) {
-    camera->set_image_size((pimoroni::PicoCamera::ImageSize)mp_obj_get_int(size));
+    camera.set_image_size((pimoroni::PicoCamera::ImageSize)mp_obj_get_int(size));
     return mp_const_none;
 }
 
 mp_obj_t pico_camera_get_image_size() {
-    return mp_obj_new_int(camera->get_image_size());
+    return mp_obj_new_int(camera.get_image_size());
 }
 
 mp_obj_t pico_camera_set_image_mode(mp_obj_t mode) {
-    camera->set_image_mode((pimoroni::PicoCamera::ImageMode)mp_obj_get_int(mode));
+    camera.set_image_mode((pimoroni::PicoCamera::ImageMode)mp_obj_get_int(mode));
     return mp_const_none;
 }
 
 mp_obj_t pico_camera_get_image_mode() {
-    return mp_obj_new_int(camera->get_image_mode());
+    return mp_obj_new_int(camera.get_image_mode());
 }
 
 mp_obj_t pico_camera_capture_image(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -108,7 +110,7 @@ mp_obj_t pico_camera_capture_image(size_t n_args, const mp_obj_t *pos_args, mp_m
     int slot = args[ARG_slot].u_int;
 
     save_spi_fn();
-    camera->capture_image(slot);
+    camera.capture_image(slot);
     restore_spi_fn();
     return mp_const_none;
 }
@@ -133,7 +135,7 @@ mp_obj_t pico_camera_read_data(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     }
 
     save_spi_fn();
-    camera->read_data(slot, address, len_to_read, buffer);
+    camera.read_data(slot, address, len_to_read, buffer);
     restore_spi_fn();
 
     return mp_obj_new_memoryview('B', len_to_read, buffer);
