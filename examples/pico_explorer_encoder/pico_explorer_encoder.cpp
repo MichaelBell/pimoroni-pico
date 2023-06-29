@@ -3,7 +3,9 @@
 #include "pico_explorer.hpp"
 #include "pico/stdlib.h"
 #include "encoder.hpp"
+#ifndef NO_QSTR
 #include "quadrature_out.pio.h"
+#endif
 #include "drivers/st7789/st7789.hpp"
 #include "libraries/pico_graphics/pico_graphics.hpp"
 #include "button.hpp"
