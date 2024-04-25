@@ -121,6 +121,14 @@ namespace pimoroni {
       return __builtin_bswap16(p);
     }
 
+    constexpr RGB565 to_rgb565_noswap() {
+      uint16_t p = ((r & 0b11111000) << 8) |
+                   ((g & 0b11111100) << 3) |
+                   ((b & 0b11111000) >> 3);
+
+      return p;
+    }
+
     constexpr RGB555 to_rgb555() {
       uint16_t p = ((r & 0b11111000) << 7) |
                    ((g & 0b11111000) << 2) |
