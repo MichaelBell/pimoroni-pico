@@ -119,11 +119,13 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
                 else instr |= 0xA042u;
                 instr |= (TIMING_H_BACK - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
+                //printf(".\n");
                 break;
 
             case 3:
                 // Display, trigger next frame at frame end
                 instr = 0x40000000u;
+                instr |= 0xA042u;
                 //if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;
                 if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
                 instr |= (TIMING_H_DISPLAY - 3) << 16;
@@ -150,7 +152,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       parallel_sm = pio_claim_unused_sm(parallel_pio, true);
       parallel_offset = pio_add_program(parallel_pio, &st7701_parallel_program);
       timing_sm = pio_claim_unused_sm(parallel_pio, true);
-      timing_offset = pio_add_program(parallel_pio, &st7701_parallel_program);
+      timing_offset = pio_add_program(parallel_pio, &st7701_timing_program);
 
       spi_init(spi, SPI_BAUD);
       gpio_set_function(spi_cs, GPIO_FUNC_SIO);
@@ -219,7 +221,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
 
       // Test config - just repeat one word
       channel_config_set_ring(&config, false, 2);
-      static uint32_t test_colour = 0x3F;
+      static uint32_t test_colour = 0xFFFFFFFF;
 
       //dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
       dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], &test_colour, 0xffffffff, true);
@@ -365,8 +367,8 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
     gpio_put(spi_cs, 0);
     
     // Add leading byte for 9th D/CX bit
-    uint8_t _command[2] = {dcx::CMD, command};
-    spi_write_blocking(spi, (const uint8_t*)_command, 2);
+    uint16_t _command = (dcx::CMD << 8) | command;
+    spi_write16_blocking(spi, &_command, 1);
 
     if(data) {
       // Add leading bytes for 9th D/CX bits
@@ -375,7 +377,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       for(auto i = 0u; i < len; i++) {
         _data[i] = (dcx::DATA << 8) | data[i];
       }
-      spi_write_blocking(spi, (const uint8_t*)_data, len);
+      spi_write16_blocking(spi, _data, len);
     }
 
     gpio_put(spi_cs, 1);

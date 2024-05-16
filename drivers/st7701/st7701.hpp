@@ -21,7 +21,8 @@ namespace pimoroni {
     //--------------------------------------------------
     // Variables
     //--------------------------------------------------
-  private:
+  public:
+  //private:
 
     // interface pins with our standard defaults where appropriate
     uint spi_cs;
