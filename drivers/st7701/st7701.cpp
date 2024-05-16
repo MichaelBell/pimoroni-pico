@@ -3,6 +3,11 @@
 #include <cstdlib>
 #include <math.h>
 
+#ifndef NO_QSTR
+#include "st7701_parallel.pio.h"
+#include "st7701_timing.pio.h"
+#endif
+
 namespace pimoroni {
   uint8_t madctl;
 
@@ -70,6 +75,167 @@ namespace pimoroni {
     CND2BKxSEL = 0xFF,
   };
 
+
+#define TIMING_V_PULSE   8
+#define TIMING_V_BACK    (13 + TIMING_V_PULSE)
+#define TIMING_V_DISPLAY (480 + TIMING_V_BACK)
+#define TIMING_V_FRONT   (3 + TIMING_V_DISPLAY)
+#define TIMING_H_FRONT   4
+#define TIMING_H_PULSE   25
+#define TIMING_H_BACK    30
+#define TIMING_H_DISPLAY 480
+
+static ST7701* st7701_inst;
+void __no_inline_not_in_flash_func(timing_isr)() {
+  st7701_inst->drive_timing();
+}
+
+void __no_inline_not_in_flash_func(ST7701::drive_timing)()
+{
+    while (!pio_sm_is_tx_fifo_full(parallel_pio, timing_sm)) {
+        uint32_t instr;
+        switch (timing_phase) {
+            case 0:
+                // Front Porch
+                instr = 0x4000A042u;
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr |= (TIMING_H_FRONT - 3) << 16;
+                pio_sm_put(parallel_pio, timing_sm, instr);
+                break;
+
+            case 1:
+                // HSYNC
+                instr = 0x0000A042u;
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr |= (TIMING_H_PULSE - 3) << 16;
+                pio_sm_put(parallel_pio, timing_sm, instr);
+                break;
+
+            case 2:
+                // Back Porch, trigger pixel channels if in display window
+                instr = 0x40000000u;
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                if (timing_row >= TIMING_V_BACK && timing_row < TIMING_V_DISPLAY) instr |= 0xC004u;
+                else instr |= 0xA042u;
+                instr |= (TIMING_H_BACK - 3) << 16;
+                pio_sm_put(parallel_pio, timing_sm, instr);
+                break;
+
+            case 3:
+                // Display, trigger next frame at frame end
+                instr = 0x40000000u;
+                //if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr |= (TIMING_H_DISPLAY - 3) << 16;
+                pio_sm_put(parallel_pio, timing_sm, instr);
+
+                if (++timing_row >= TIMING_V_FRONT) timing_row = 0;
+                break;
+        }
+
+        timing_phase = (timing_phase + 1) & 3;
+    }
+}
+
+  ST7701::ST7701(uint16_t width, uint16_t height, Rotation rotation, SPIPins control_pins,
+      uint d0, uint hsync, uint vsync, uint lcd_de, uint lcd_dot_clk) :
+            DisplayDriver(width, height, rotation),
+            spi(control_pins.spi),
+            spi_cs(control_pins.cs), spi_sck(control_pins.sck), spi_dat(control_pins.mosi), lcd_bl(control_pins.bl),
+            d0(d0), hsync(hsync), vsync(vsync), lcd_de(lcd_de), lcd_dot_clk(lcd_dot_clk) 
+  {
+      st7701_inst = this;
+
+      parallel_pio = pio1;
+      parallel_sm = pio_claim_unused_sm(parallel_pio, true);
+      parallel_offset = pio_add_program(parallel_pio, &st7701_parallel_program);
+      timing_sm = pio_claim_unused_sm(parallel_pio, true);
+      timing_offset = pio_add_program(parallel_pio, &st7701_parallel_program);
+
+      spi_init(spi, SPI_BAUD);
+      gpio_set_function(spi_cs, GPIO_FUNC_SIO);
+      gpio_set_dir(spi_cs, GPIO_OUT);
+      gpio_set_function(spi_dat, GPIO_FUNC_SPI);
+      gpio_set_function(spi_sck, GPIO_FUNC_SPI);
+
+      // ST7701 3-line Serial Interface
+      // 9th bit = D/CX
+      // low = command
+      // high = data
+      spi_set_format(spi, 9, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+  
+      //gpio_init(wr_sck);
+      //gpio_set_dir(wr_sck, GPIO_OUT);
+      //gpio_set_function(wr_sck, GPIO_FUNC_SIO);
+      pio_gpio_init(parallel_pio, hsync);
+      pio_gpio_init(parallel_pio, vsync);
+      pio_gpio_init(parallel_pio, lcd_de);
+      pio_gpio_init(parallel_pio, lcd_dot_clk);
+
+      for(auto i = 0u; i < 18; i++) {
+        //gpio_set_function(d0 + i, GPIO_FUNC_SIO);
+        //gpio_set_dir(d0 + i, GPIO_OUT);
+        //gpio_init(d0 + 0); gpio_set_dir(d0 + i, GPIO_OUT);
+        pio_gpio_init(parallel_pio, d0 + i);
+      }
+
+      pio_sm_set_consecutive_pindirs(parallel_pio, parallel_sm, d0, 18, true);
+      pio_sm_set_consecutive_pindirs(parallel_pio, parallel_sm, lcd_de, 2, true);
+      pio_sm_set_consecutive_pindirs(parallel_pio, timing_sm, hsync, 2, true);
+
+      pio_sm_config c = st7701_parallel_program_get_default_config(parallel_offset);
+
+      sm_config_set_out_pins(&c, d0, 18);
+      sm_config_set_sideset_pins(&c, lcd_de);
+      sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+      sm_config_set_out_shift(&c, true, true, 18);
+      
+      // Determine clock divider
+      constexpr uint32_t max_pio_clk = 32 * MHZ;
+      const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
+      const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
+      sm_config_set_clkdiv(&c, clk_div);
+      
+      pio_sm_init(parallel_pio, parallel_sm, parallel_offset, &c);
+      pio_sm_exec(parallel_pio, parallel_sm, pio_encode_out(pio_y, 18));
+      pio_sm_put(parallel_pio, parallel_sm, width-1);
+      pio_sm_set_enabled(parallel_pio, parallel_sm, true);
+
+      c = st7701_timing_program_get_default_config(timing_offset);
+
+      sm_config_set_out_pins(&c, hsync, 2);
+      sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+      sm_config_set_out_shift(&c, false, true, 32);
+      sm_config_set_clkdiv(&c, clk_div);
+      
+      pio_sm_init(parallel_pio, timing_sm, timing_offset, &c);
+      pio_sm_set_enabled(parallel_pio, timing_sm, true);
+
+      st_dma = dma_claim_unused_channel(true);
+      dma_channel_config config = dma_channel_get_default_config(st_dma);
+      channel_config_set_transfer_data_size(&config, DMA_SIZE_32);
+      channel_config_set_bswap(&config, false);
+      channel_config_set_dreq(&config, pio_get_dreq(parallel_pio, parallel_sm, true));
+
+      // Test config - just repeat one word
+      channel_config_set_ring(&config, false, 2);
+      static uint32_t test_colour = 0x3F;
+
+      //dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
+      dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], &test_colour, 0xffffffff, true);
+
+      printf("Begin SPI setup\n");
+
+      common_init();
+
+      printf("Setup screen timing\n");
+
+      // Setup timing
+      hw_set_bits(&parallel_pio->inte1, 0x010 << timing_sm);  // TX not full
+      irq_set_exclusive_handler(PIO1_IRQ_1, timing_isr);
+      irq_set_enabled(PIO1_IRQ_1, true);
+    }
+
   void ST7701::common_init() {
     // if a backlight pin is provided then set it up for
     // pwm control
@@ -92,7 +258,7 @@ namespace pimoroni {
       // TODO: Figure out what's actually display specific
       command(reg::MADCTL, 1, "\x00");  // Normal scan direction and RGB pixels
       command(reg::LNESET, 2, "\x3b\x00");   // (59 + 1) * 8 = 480 lines
-      command(reg::PORCTRL, 2, "\x0d\x02");  // 13 VBP, 2 VFP
+      command(reg::PORCTRL, 2, "\x0d\x03");  // 13 VBP, 3 VFP
       command(reg::INVSET, 2, "\x32\x05");
       command(reg::COLCTRL, 1, "\x08");      // LED polarity reversed
       command(reg::PVGAMCTRL, 16, "\x00\x11\x18\x0e\x11\x06\x07\x08\x07\x22\x04\x12\x0f\xaa\x31\x18");

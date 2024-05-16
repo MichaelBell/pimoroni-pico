@@ -5,6 +5,7 @@ target_sources(${DRIVER_NAME} INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/${DRIVER_NAME}.cpp)
 
 pico_generate_pio_header(${DRIVER_NAME} ${CMAKE_CURRENT_LIST_DIR}/st7701_parallel.pio)
+pico_generate_pio_header(${DRIVER_NAME} ${CMAKE_CURRENT_LIST_DIR}/st7701_timing.pio)
 
 target_include_directories(${DRIVER_NAME} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
