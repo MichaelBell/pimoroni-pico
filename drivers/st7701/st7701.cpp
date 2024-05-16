@@ -86,6 +86,8 @@ namespace pimoroni {
 #define TIMING_H_DISPLAY 480
 
 static ST7701* st7701_inst;
+
+// This ISR is triggered whenever the timing SM's FIFO is not full
 void __no_inline_not_in_flash_func(timing_isr)() {
   st7701_inst->drive_timing();
 }
@@ -97,26 +99,26 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
         switch (timing_phase) {
             case 0:
                 // Front Porch
-                instr = 0x4000A042u;
-                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr = 0x4000A042u;  // HSYNC high, NOP
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
                 instr |= (TIMING_H_FRONT - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
                 break;
 
             case 1:
                 // HSYNC
-                instr = 0x0000A042u;
-                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr = 0x0000A042u;  // HSYNC low, NOP
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
                 instr |= (TIMING_H_PULSE - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
                 break;
 
             case 2:
                 // Back Porch, trigger pixel channels if in display window
-                instr = 0x40000000u;
-                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
-                if (timing_row >= TIMING_V_BACK && timing_row < TIMING_V_DISPLAY) instr |= 0xC004u;
-                else instr |= 0xA042u;
+                instr = 0x40000000u;  // HSYNC high
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
+                if (timing_row >= TIMING_V_BACK && timing_row < TIMING_V_DISPLAY) instr |= 0xC004u;  // IRQ 4, triggers the data SM
+                else instr |= 0xA042u;  // NOP
                 instr |= (TIMING_H_BACK - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
                 //printf(".\n");
@@ -124,10 +126,10 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
 
             case 3:
                 // Display, trigger next frame at frame end
-                instr = 0x40000000u;
-                instr |= 0xA042u;
-                //if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;
-                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;
+                instr = 0x40000000u;  // HSYNC high
+                instr |= 0xA042u;     // NOP
+                //if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;  // Will be irq 0, to trigger queueing DMA for a new frame 
+                if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
                 instr |= (TIMING_H_DISPLAY - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
 
