@@ -3,7 +3,7 @@
 ; Side-set is data enable
 
 .program st7701_parallel
-.side_set 2
+.side_set 1
 
 .wrap_target
   mov x, y      side 0  ; y needs to be set to width-1 at init time

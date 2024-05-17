@@ -7,6 +7,8 @@
 ;        irq n : 0xc00n ; Signal to CPU or a data PIO
 ; Side set is data clock, which runs continuously
 .program st7701_timing
+.side_set 1
+
 .wrap_target
   out pins, 2         side 0    ; Set VS & HS
   out x, 14           side 1    ; Loop count
