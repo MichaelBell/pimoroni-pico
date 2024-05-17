@@ -1,14 +1,14 @@
 ; Output 18 bit parallel RGB666 data every clock
 ; Wait for irq 4 from the timing SM between each row
-; Side-set has data enable on side 0, data clock on side 1
+; Side-set is data enable
 
 .program st7701_parallel
 .side_set 2
 
 .wrap_target
-  mov x, y      side 0b00  ; y needs to be set to width-1 at init time
-  wait 1 irq 4  side 0b00  ; wait for the irq from the timing SM
+  mov x, y      side 0  ; y needs to be set to width-1 at init time
+  wait 1 irq 4  side 0  ; wait for the irq from the timing SM
 loop:
-  out pins, 18  side 0b01
-  jmp x-- loop  side 0b11
+  out pins, 18  side 1
+  jmp x-- loop  side 1
 .wrap

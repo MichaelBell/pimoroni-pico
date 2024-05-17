@@ -184,8 +184,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       }
 
       pio_sm_set_consecutive_pindirs(parallel_pio, parallel_sm, d0, 18, true);
-      pio_sm_set_consecutive_pindirs(parallel_pio, parallel_sm, lcd_de, 2, true);
-      pio_sm_set_consecutive_pindirs(parallel_pio, timing_sm, hsync, 2, true);
+      pio_sm_set_consecutive_pindirs(parallel_pio, parallel_sm, hsync, 4, true);
 
       pio_sm_config c = st7701_parallel_program_get_default_config(parallel_offset);
 
@@ -208,6 +207,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       c = st7701_timing_program_get_default_config(timing_offset);
 
       sm_config_set_out_pins(&c, hsync, 2);
+      sm_config_set_sideset_pins(&c, lcd_dot_clk);
       sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
       sm_config_set_out_shift(&c, false, true, 32);
       sm_config_set_clkdiv(&c, clk_div);

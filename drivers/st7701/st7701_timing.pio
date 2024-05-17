@@ -5,11 +5,14 @@
 ; 15-0:  Instruction to run after delay, sensible options are:
 ;        nop   : 0xa042 ; Do nothing
 ;        irq n : 0xc00n ; Signal to CPU or a data PIO
+; Side set is data clock, which runs continuously
 .program st7701_timing
 .wrap_target
-  out pins, 2      ; Set VS & HS
-  out x, 14        ; Loop count
+  out pins, 2         side 0    ; Set VS & HS
+  out x, 14           side 1    ; Loop count
 sync_loop:
-  jmp x--, sync_loop [1]
-  out exec, 16 [1]
+  nop                 side 0
+  jmp x--, sync_loop  side 1
+  out exec, 16        side 0
+  nop                 side 1
 .wrap
