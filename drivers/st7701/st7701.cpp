@@ -8,6 +8,9 @@
 #include "st7701_timing.pio.h"
 #endif
 
+// Temp hack
+extern uint32_t* framebuffer;
+
 namespace pimoroni {
   uint8_t madctl;
 
@@ -221,12 +224,11 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       channel_config_set_bswap(&config, false);
       channel_config_set_dreq(&config, pio_get_dreq(parallel_pio, parallel_sm, true));
 
-      // Test config - just repeat one word
-      channel_config_set_ring(&config, false, 2);
-      static uint32_t test_colour = 0xFC00;
+      // Test config - repeat 32 words
+      channel_config_set_ring(&config, false, 7);
 
       //dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
-      dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], &test_colour, 0xffffffff, true);
+      dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], &framebuffer, 0xffffffff, true);
 
       printf("Begin SPI setup\n");
 
@@ -291,8 +293,10 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
     command(0xE3, 4, "\x00\x00\x11\x11");
     command(0xE4, 2, "\x44\x44");
     command(0xE5, 16, "\x0a\xe9\xd8\xa0\x0c\xeb\xd8\xa0\x0e\xed\xd8\xa0\x10\xef\xd8\xa0");
+    command(0xE6, 4, "\x00\x00\x11\x11");
     command(0xE7, 2, "\x44\x44");
     command(0xE8, 16, "\x09\xe8\xd8\xa0\x0b\xea\xd8\xa0\x0d\xec\xd8\xa0\x0f\xee\xd8\xa0");
+    command(0xEB, 7, "\x02\x00\xe4\xe4\x88\x00\x40");
     command(0xEC, 2, "\x3c\x00");
     command(0xED, 16, "\xab\x89\x76\x54\x02\xff\xff\xff\xff\xff\xff\x20\x45\x67\x98\xba");
     command(0x36, 1, "\x00");
@@ -301,9 +305,11 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
     // Command 2 BK3
     command(reg::CND2BKxSEL, 5, "\x77\x01\x00\x00\x13");
     //command(reg::COLMOD, 1, "\x77");  // 24 bits per pixel...
-    command(reg::COLMOD, 1, "\x60");    // 18 bits per pixel...
+    command(reg::COLMOD, 1, "\x66");    // 18 bits per pixel...
     //command(reg::COLMOD, 1, "\x55");  // 16 bits per pixel...
-
+    
+    command(reg::INVON);
+    sleep_ms(1);
     command(reg::SLPOUT);
     sleep_ms(120);
     command(reg::DISPON);
