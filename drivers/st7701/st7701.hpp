@@ -21,8 +21,7 @@ namespace pimoroni {
     //--------------------------------------------------
     // Variables
     //--------------------------------------------------
-  public:
-  //private:
+  private:
 
     // interface pins with our standard defaults where appropriate
     uint spi_cs;
@@ -60,6 +59,7 @@ namespace pimoroni {
 
     // Only to be called by ISR
     void drive_timing();
+    void start_frame_xfer();
 
   private:
     void common_init();

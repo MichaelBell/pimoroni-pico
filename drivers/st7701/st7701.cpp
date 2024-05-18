@@ -9,7 +9,7 @@
 #endif
 
 // Temp hack
-extern uint32_t* framebuffer;
+extern uint16_t* framebuffer;
 
 namespace pimoroni {
   uint8_t madctl;
@@ -92,7 +92,7 @@ static ST7701* st7701_inst;
 
 // This ISR is triggered whenever the timing SM's FIFO is not full
 void __no_inline_not_in_flash_func(timing_isr)() {
-  st7701_inst->drive_timing();
+    st7701_inst->drive_timing();
 }
 
 void __no_inline_not_in_flash_func(ST7701::drive_timing)()
@@ -130,8 +130,8 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
             case 3:
                 // Display, trigger next frame at frame end
                 instr = 0x40000000u;  // HSYNC high
-                instr |= 0xA042u;     // NOP
-                //if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;  // Will be irq 0, to trigger queueing DMA for a new frame 
+                if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;  // Will be irq 0, to trigger queueing DMA for a new frame 
+                else instr |= 0xA042u;     // NOP
                 if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
                 instr |= (TIMING_H_DISPLAY - 3) << 16;
                 pio_sm_put(parallel_pio, timing_sm, instr);
@@ -142,6 +142,18 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
 
         timing_phase = (timing_phase + 1) & 3;
     }
+}
+
+// This ISR is triggered at the end of each frame being transferred
+void end_of_frame_isr() {
+    st7701_inst->start_frame_xfer();
+}
+
+void ST7701::start_frame_xfer()
+{
+    hw_clear_bits(&parallel_pio->irq, 0x1);
+    dma_channel_transfer_from_buffer_now(st_dma, framebuffer, height*width);
+    //printf(".\n");
 }
 
   ST7701::ST7701(uint16_t width, uint16_t height, Rotation rotation, SPIPins control_pins,
@@ -197,9 +209,10 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       sm_config_set_out_shift(&c, true, true, 18);
       
       // Determine clock divider
-      constexpr uint32_t max_pio_clk = 32 * MHZ;
-      const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
-      const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
+      //constexpr uint32_t max_pio_clk = 32 * MHZ;
+      //const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
+      //const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
+      const uint32_t clk_div = 6;
       sm_config_set_clkdiv(&c, clk_div);
       
       pio_sm_init(parallel_pio, parallel_sm, parallel_offset, &c);
@@ -220,15 +233,15 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
 
       st_dma = dma_claim_unused_channel(true);
       dma_channel_config config = dma_channel_get_default_config(st_dma);
-      channel_config_set_transfer_data_size(&config, DMA_SIZE_32);
+      channel_config_set_transfer_data_size(&config, DMA_SIZE_16);
       channel_config_set_bswap(&config, false);
       channel_config_set_dreq(&config, pio_get_dreq(parallel_pio, parallel_sm, true));
 
       // Test config - repeat 32 words
-      channel_config_set_ring(&config, false, 7);
+      //channel_config_set_ring(&config, false, 7);
 
       //dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
-      dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], &framebuffer, 0xffffffff, true);
+      dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], framebuffer, width * height, true);
 
       printf("Begin SPI setup\n");
 
@@ -240,6 +253,10 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
       hw_set_bits(&parallel_pio->inte1, 0x010 << timing_sm);  // TX not full
       irq_set_exclusive_handler(PIO1_IRQ_1, timing_isr);
       irq_set_enabled(PIO1_IRQ_1, true);
+
+      hw_set_bits(&parallel_pio->inte0, 0x100); // IRQ 0
+      irq_set_exclusive_handler(PIO1_IRQ_0, end_of_frame_isr);
+      irq_set_enabled(PIO1_IRQ_0, true);
     }
 
   void ST7701::common_init() {

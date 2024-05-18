@@ -9,6 +9,6 @@
   mov x, y      side 0  ; y needs to be set to width-1 at init time
   wait 1 irq 4  side 0  ; wait for the irq from the timing SM
 loop:
-  out pins, 18  side 1
+  out pins, 16  side 1
   jmp x-- loop  side 1
 .wrap
