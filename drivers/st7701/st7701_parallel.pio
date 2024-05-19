@@ -11,4 +11,5 @@
 loop:
   out pins, 16  side 1
   jmp x-- loop  side 1
+  nop           side 1
 .wrap

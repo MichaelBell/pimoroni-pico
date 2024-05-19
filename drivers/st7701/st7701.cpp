@@ -2,14 +2,12 @@
 
 #include <cstdlib>
 #include <math.h>
+#include <pico/sync.h>
 
 #ifndef NO_QSTR
 #include "st7701_parallel.pio.h"
 #include "st7701_timing.pio.h"
 #endif
-
-// Temp hack
-extern uint16_t* framebuffer;
 
 namespace pimoroni {
   uint8_t madctl;
@@ -130,7 +128,7 @@ void __no_inline_not_in_flash_func(ST7701::drive_timing)()
             case 3:
                 // Display, trigger next frame at frame end
                 instr = 0x40000000u;  // HSYNC high
-                if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;  // Will be irq 0, to trigger queueing DMA for a new frame 
+                if (timing_row == TIMING_V_FRONT - 1) instr = 0x4000C000u;  // irq 0, to trigger queueing DMA for a new frame 
                 else instr |= 0xA042u;     // NOP
                 if (timing_row >= TIMING_V_PULSE) instr |= 0x80000000u;  // VSYNC high if not in VSYNC pulse
                 instr |= (TIMING_H_DISPLAY - 3) << 16;
@@ -152,16 +150,32 @@ void end_of_frame_isr() {
 void ST7701::start_frame_xfer()
 {
     hw_clear_bits(&parallel_pio->irq, 0x1);
+    dma_channel_abort(st_dma);
+    dma_channel_wait_for_finish_blocking(st_dma);
+    pio_sm_set_enabled(parallel_pio, parallel_sm, false);
+    pio_sm_drain_tx_fifo(parallel_pio, parallel_sm);
+    pio_sm_exec_wait_blocking(parallel_pio, parallel_sm, pio_encode_jmp(parallel_offset));
+    pio_sm_exec_wait_blocking(parallel_pio, parallel_sm, pio_encode_mov(pio_osr, pio_null));
+    pio_sm_set_enabled(parallel_pio, parallel_sm, true);
+
+    if (next_framebuffer) {
+      framebuffer = next_framebuffer;
+      next_framebuffer = nullptr;
+    }
+
     dma_channel_transfer_from_buffer_now(st_dma, framebuffer, height*width);
-    //printf(".\n");
+
+    waiting_for_vsync = false;
+    __sev();
 }
 
-  ST7701::ST7701(uint16_t width, uint16_t height, Rotation rotation, SPIPins control_pins,
+  ST7701::ST7701(uint16_t width, uint16_t height, Rotation rotation, SPIPins control_pins, uint16_t* framebuffer,
       uint d0, uint hsync, uint vsync, uint lcd_de, uint lcd_dot_clk) :
             DisplayDriver(width, height, rotation),
             spi(control_pins.spi),
             spi_cs(control_pins.cs), spi_sck(control_pins.sck), spi_dat(control_pins.mosi), lcd_bl(control_pins.bl),
-            d0(d0), hsync(hsync), vsync(vsync), lcd_de(lcd_de), lcd_dot_clk(lcd_dot_clk) 
+            d0(d0), hsync(hsync), vsync(vsync), lcd_de(lcd_de), lcd_dot_clk(lcd_dot_clk),
+            framebuffer(framebuffer)
   {
       st7701_inst = this;
 
@@ -435,5 +449,10 @@ void ST7701::start_frame_xfer()
     float gamma = 2.8;
     uint16_t value = (uint16_t)(pow((float)(brightness) / 255.0f, gamma) * 65535.0f + 0.5f);
     pwm_set_gpio_level(lcd_bl, value);
+  }
+
+  void ST7701::wait_for_vsync() {
+    waiting_for_vsync = true;
+    while (waiting_for_vsync) __wfe();
   }
 }
