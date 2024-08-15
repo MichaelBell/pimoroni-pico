@@ -31,7 +31,8 @@ enum PicoGraphicsDisplay {
     DISPLAY_UNICORN_PACK,
     DISPLAY_SCROLL_PACK,
     DISPLAY_PICO_W_EXPLORER,
-    DISPLAY_PRESTO
+    DISPLAY_PRESTO,
+    DISPLAY_PRESTO_FULL_RES
 };
 
 enum PicoGraphicsPenType {
